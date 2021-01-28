@@ -17,6 +17,8 @@ class TriviaTestCase(unittest.TestCase):
         self.app = create_app(test_config=ConfigTest())
         self.client = self.app.test_client
         self.db = self.app.db
+        self.new_question = {'question': 'Does this test work?', 'answer': 'maybe',
+                             'category': 'testing', 'difficulty': 4}
 
     def tearDown(self):
         """Executed after reach test"""
@@ -52,6 +54,17 @@ class TriviaTestCase(unittest.TestCase):
         self.assertTrue(res['success'])
         self.assertTrue(len(res['categories']) > 0)
         self.assertTrue(res['total_categories'] > 0)
+    
+    def test_retrieve_categories_as_dict(self):
+        Category.query.delete()
+        cat = Category(type='temp')
+        self.db.session.add(cat)
+        self.db.session.commit()
+        res = self.client().get('/api/categories')
+        res = json.loads(res.data)
+        categories = res['categories']
+        for k in categories.keys():
+            self.assertEqual(categories[k], 'temp')
 
     def test_retrieve_categories_error(self):
         # Try to get categories when the table is empty
@@ -126,7 +139,26 @@ class TriviaTestCase(unittest.TestCase):
         self.db.session.commit()
         res = self.client().delete('/api/questions/1')
         self.assert_404(res)
+
+    def test_create_question(self):
+        Question.query.delete()
+        self.db.session.commit()
+        res = self.client().post('/api/questions', json=self.new_question)
+        self.assertEqual(res.status_code, 200)
+        res = json.loads(res.data)
+        self.assertTrue(res['success'])
+        res = self.client().get('/api/questions')
+        res = json.loads(res.data)
+        self.assertEqual(res['total_questions'], 1)
+        self.assertEqual(res['questions'][0]['question'], self.new_question['question'])
+        self.assertEqual(res['questions'][0]['answer'], self.new_question['answer'])
+        self.assertEqual(res['questions'][0]['category'], self.new_question['category'])
+        self.assertEqual(res['questions'][0]['difficulty'], self.new_question['difficulty'])
         
+    def test_create_question_error(self):
+        res = self.client().post('/api/questions/45', json=self.new_question)
+        self.assertEqual(res.status_code, 405)
+
 
 # Make the tests conveniently executable
 if __name__ == "__main__":

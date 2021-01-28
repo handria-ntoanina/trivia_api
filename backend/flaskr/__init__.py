@@ -64,7 +64,7 @@ def create_app(test_config=None):
 
         return jsonify({
             'success': True,
-            'categories': [cat.format() for cat in selection],
+            'categories': {cat.id: cat.type for cat in selection},
             'total_categories': len(selection)
         })
     
@@ -123,7 +123,27 @@ def create_app(test_config=None):
     the form will clear and the question will appear at the end of the last page
     of the questions list in the "List" tab.
     '''
-    
+    @app.route('/api/questions', methods=['POST'])
+    def create_question():
+        body = request.get_json()
+        
+        new_question = body.get('question', None)
+        new_category = body.get('category', None)
+        new_answer = body.get('answer', None)
+        new_difficulty = body.get('difficulty', 0)
+        
+        try:
+            question = Question(question=new_question, answer=new_answer,
+                                category=new_category, difficulty=new_difficulty)
+            app.db.session.add(question)
+            app.db.session.commit()
+            return jsonify({
+                    'success': True
+                }), 200
+
+        except:
+            abort(422)
+        
     '''
     @TODO:
     Create a POST endpoint to get questions based on a search term.
