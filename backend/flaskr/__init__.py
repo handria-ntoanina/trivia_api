@@ -16,8 +16,7 @@ def create_app(test_config=None):
     
     if test_config is None:
         # load the instance config, if it exists, when not testing
-        config = Config()
-        app.config.from_pyfile(config, silent=True)
+        app.config.from_object(Config())
     else:
         # load the test config if passed in
         app.config.from_object(test_config)
@@ -41,15 +40,13 @@ def create_app(test_config=None):
         response.headers.add('Access-Control-Allow-Methods', 'GET,PATCH,POST,PUT,DELETE,OPTIONS')
         return response
 
-    def paginate(request, selection):
+    def paginate(request, query):
         page = request.args.get('page', 1, type=int)
-        start = (page - 1) * QUESTIONS_PER_PAGE
-        end = start + QUESTIONS_PER_PAGE
-    
-        books = [book.format() for book in selection]
-        current_books = books[start:end]
-    
-        return current_books
+        if query.count() < page * QUESTIONS_PER_PAGE:
+            abort(404)
+        selection = query.limit(QUESTIONS_PER_PAGE).offset((page - 1) * QUESTIONS_PER_PAGE).all()
+        selection = [o.format() for o in selection]
+        return selection
     
     '''
     @TODO:
@@ -82,6 +79,16 @@ def create_app(test_config=None):
     Clicking on the page numbers should update the questions.
     '''
     
+    @app.route('/api/questions')
+    def retrieve_questions():
+        selection = Question.query.order_by(Question.question)
+        paginated = paginate(request, selection)
+        return jsonify({
+                'success': True,
+                'questions': paginated,
+                'total_questions': selection.count(),
+                'categories': {cat.id: cat.type for cat in Category.query.order_by(Category.type).all()}
+            })
     '''
     @TODO:
     Create an endpoint to DELETE question using a question ID.

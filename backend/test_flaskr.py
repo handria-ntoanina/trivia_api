@@ -4,7 +4,7 @@ import json
 from flask_sqlalchemy import SQLAlchemy
 from config import ConfigTest
 
-from flaskr import create_app
+from flaskr import create_app, QUESTIONS_PER_PAGE
 from models import setup_db, Question, Category
 
 
@@ -21,6 +21,13 @@ class TriviaTestCase(unittest.TestCase):
     def tearDown(self):
         """Executed after reach test"""
         pass
+
+    def assert_404(self, res):
+        data = json.loads(res.data)
+        self.assertFalse(data['success'])
+        self.assertEqual(data['error'], 404)
+        self.assertEqual(data['message'], 'resource not found')
+        self.assertEqual(res.status_code, 404)
 
     """
     TODO
@@ -44,12 +51,56 @@ class TriviaTestCase(unittest.TestCase):
         Category.query.delete()
         self.db.session.commit()
         res = self.client().get('/api/categories')
-        data = json.loads(res.data)
-        self.assertFalse(data['success'])
-        self.assertEqual(data['error'], 404)
-        self.assertEqual(data['message'], 'resource not found')
-        self.assertEqual(res.status_code, 404)
+        self.assert_404(res)
+    
+    def test_retrieve_questions(self):
+        size = QUESTIONS_PER_PAGE * 2
+        self.generate_test_data(size)
+        res = self.client().get('/api/questions')
+        res = json.loads(res.data)
+        self.assertTrue(res['success'])
+        self.assertEqual(len(res['questions']), QUESTIONS_PER_PAGE)
+        self.assertEqual(res['total_questions'], size)
+        
+    def test_retrieve_questions_includes_categories(self):
+        # Build categories on empty DB
+        Category.query.delete()
+        cat = Category(type='temp')
+        self.db.session.add(cat)
+        self.db.session.commit()
+        size = QUESTIONS_PER_PAGE * 2
+        self.generate_test_data(size)
+        res = self.client().get('/api/questions')
+        res = json.loads(res.data)
+        self.assertTrue('categories' in res)
+        categories = res['categories']
+        for k in categories.keys():
+            self.assertEqual(categories[k], 'temp')
+        
+    def test_retrieve_questions_from_page(self):
+        size = QUESTIONS_PER_PAGE * 2
+        self.generate_test_data(size)
+        res = self.client().get('/api/questions?page=2')
+        res = json.loads(res.data)
+        self.assertTrue(res['success'])
+        self.assertEqual(res['questions'][0]['question'], 'question10')
+        self.assertEqual(len(res['questions']), QUESTIONS_PER_PAGE)
+        self.assertEqual(res['total_questions'], size)
 
+    def generate_test_data(self, size):
+        # Empty the table question and add some rows
+        Question.query.delete()
+        for i in range(size):
+            s = str(i) if i >= 10 else '0' + str(i)
+            question = Question('question' + s, 'answer' + s, 'category', i)
+            self.db.session.add(question)
+        self.db.session.commit()
+
+    def test_retrieve_questions_error(self):
+        res = self.client().get('/api/questions?page=100')
+        self.assert_404(res)
+    
+    
 # Make the tests conveniently executable
 if __name__ == "__main__":
     unittest.main()
