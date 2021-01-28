@@ -42,7 +42,9 @@ def create_app(test_config=None):
 
     def paginate(request, query):
         page = request.args.get('page', 1, type=int)
-        if query.count() < page * QUESTIONS_PER_PAGE:
+        # if 1st index of the page is greater than the last index of the result
+        # then abort
+        if query.count() - 1 < (page - 1) * QUESTIONS_PER_PAGE:
             abort(404)
         selection = query.limit(QUESTIONS_PER_PAGE).offset((page - 1) * QUESTIONS_PER_PAGE).all()
         selection = [o.format() for o in selection]
@@ -96,6 +98,20 @@ def create_app(test_config=None):
     TEST: When you click the trash icon next to a question, the question will be removed.
     This removal will persist in the database and when you refresh the page.
     '''
+    
+    @app.route('/api/questions/<int:question_id>', methods=['DELETE'])
+    def delete_question(question_id):
+        question = Question.query.filter(Question.id == question_id).one_or_none()
+        if not question:
+            abort(404)
+        try:
+            app.db.session.delete(question)
+            app.db.session.commit()
+            return jsonify({
+                'success': True
+            })
+        except:
+            abort(422)
     
     '''
     @TODO:

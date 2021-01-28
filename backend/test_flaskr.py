@@ -29,6 +29,13 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['message'], 'resource not found')
         self.assertEqual(res.status_code, 404)
 
+    def assert_422(self, res):
+        data = json.loads(res.data)
+        self.assertFalse(data['success'])
+        self.assertEqual(data['error'], 422)
+        self.assertEqual(data['message'], 'unprocessable')
+        self.assertEqual(res.status_code, 422)
+
     """
     TODO
     Write at least one test for each test for successful operation and for expected errors.
@@ -100,7 +107,27 @@ class TriviaTestCase(unittest.TestCase):
         res = self.client().get('/api/questions?page=100')
         self.assert_404(res)
     
-    
+    def test_delete_question(self):
+        self.generate_test_data(2)
+        res = self.client().get('/api/questions')
+        res = json.loads(res.data)
+        question = res['questions'][0]
+        res = self.client().delete('/api/questions/{}'.format(question['id']))
+        res = json.loads(res.data)
+        self.assertTrue(res['success'])
+        res = self.client().get('/api/questions')
+        res = json.loads(res.data)
+        self.assertTrue(res['success'])
+        self.assertEqual(res['total_questions'], 1)
+        self.assertTrue(question['id'] not in [q['id'] for q in res['questions']])
+        
+    def test_delete_question_error(self):
+        Question.query.delete()
+        self.db.session.commit()
+        res = self.client().delete('/api/questions/1')
+        self.assert_404(res)
+        
+
 # Make the tests conveniently executable
 if __name__ == "__main__":
     unittest.main()
