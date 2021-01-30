@@ -87,14 +87,18 @@ def create_app(test_config=None):
         search_term = request.args.get('searchTerm')
         if search_term:
             selection = selection.filter(Question.question.ilike('%{}%'.format(search_term)))
+        return return_questions(selection)
+
+    def return_questions(selection):
         selection = selection.order_by(Question.question)
         paginated = paginate(request, selection)
         return jsonify({
-                'success': True,
-                'questions': paginated,
-                'total_questions': selection.count(),
-                'categories': {cat.id: cat.type for cat in Category.query.order_by(Category.type).all()}
-            })
+            'success': True,
+            'questions': paginated,
+            'total_questions': selection.count(),
+            'categories': {cat.id: cat.type for cat in Category.query.order_by(Category.type).all()}
+        })
+
     '''
     @TODO:
     Create an endpoint to DELETE question using a question ID.
@@ -170,8 +174,11 @@ def create_app(test_config=None):
     categories in the left column will cause only questions of that
     category to be shown.
     '''
-    
-    
+
+    @app.route('/api/categories/<int:category_id>/questions')
+    def retrieve_category_question(category_id):
+        selection = Question.query.filter(Question.category == category_id)
+        return return_questions(selection)
     '''
     @TODO:
     Create a POST endpoint to get questions to play the quiz.

@@ -19,7 +19,7 @@ class TriviaTestCase(unittest.TestCase):
         self.client = self.app.test_client
         self.db = self.app.db
         self.new_question = {'question': 'Does this test work?', 'answer': 'maybe',
-                             'category': 'testing', 'difficulty': 4}
+                             'category': 5, 'difficulty': 4}
 
     def tearDown(self):
         """Executed after reach test"""
@@ -44,7 +44,7 @@ class TriviaTestCase(unittest.TestCase):
         Question.query.delete()
         for i in range(size):
             s = str(i) if i >= 10 else '0' + str(i)
-            question = Question('question' + s, 'answer' + s, 'category', i)
+            question = Question('question' + s, 'answer' + s, i, i)
             self.db.session.add(question)
         self.db.session.commit()
 
@@ -175,6 +175,22 @@ class TriviaTestCase(unittest.TestCase):
         res = self.client().post('/api/questions/45', json=self.new_question)
         self.assertEqual(res.status_code, 405)
 
+    def test_retrieve_category_questions(self):
+        self.generate_test_data(5)
+        
+        res = self.client().get('/api/categories/4/questions')
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['total_questions'], 1)
+        self.assertEqual(data['questions'][0]['category'], 4)
+
+    def test_retrieve_category_questions_error(self):
+        question = Question('q','ans', 10, 4)
+        self.db.session.add(question)
+        self.db.session.commit()
+        self.generate_test_data(5)
+        res = self.client().get('/api/categories/12/questions')
+        self.assert_404(res)
 
 # Make the tests conveniently executable
 if __name__ == "__main__":
