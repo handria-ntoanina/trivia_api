@@ -6,6 +6,7 @@ from config import ConfigTest
 
 from flaskr import create_app, QUESTIONS_PER_PAGE
 from models import setup_db, Question, Category
+from urllib.parse import quote
 
 
 class TriviaTestCase(unittest.TestCase):
@@ -37,6 +38,15 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['error'], 422)
         self.assertEqual(data['message'], 'unprocessable')
         self.assertEqual(res.status_code, 422)
+
+    def generate_test_data(self, size):
+        # Empty the table question and add some rows
+        Question.query.delete()
+        for i in range(size):
+            s = str(i) if i >= 10 else '0' + str(i)
+            question = Question('question' + s, 'answer' + s, 'category', i)
+            self.db.session.add(question)
+        self.db.session.commit()
 
     """
     TODO
@@ -106,15 +116,21 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res['questions'][0]['question'], 'question10')
         self.assertEqual(len(res['questions']), QUESTIONS_PER_PAGE)
         self.assertEqual(res['total_questions'], size)
-
-    def generate_test_data(self, size):
-        # Empty the table question and add some rows
-        Question.query.delete()
-        for i in range(size):
-            s = str(i) if i >= 10 else '0' + str(i)
-            question = Question('question' + s, 'answer' + s, 'category', i)
-            self.db.session.add(question)
-        self.db.session.commit()
+        
+    def test_retrieve_questions_filtered(self):
+        self.generate_test_data(20)
+        res = self.client().get('/api/questions?searchTerm={}'.format(quote('stion%2')))
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['total_questions'], 2)
+        questions = [q['question'] for q in data['questions']]
+        self.assertTrue('question02' in questions)
+        self.assertTrue('question12' in questions)
+    
+    def test_retrieve_questions_filtered_error(self):
+        self.generate_test_data(5)
+        res = self.client().get('/api/questions?searchTerm={}'.format(quote('notexist')))
+        self.assert_404(res)
 
     def test_retrieve_questions_error(self):
         res = self.client().get('/api/questions?page=100')

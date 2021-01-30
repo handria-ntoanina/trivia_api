@@ -22,6 +22,9 @@ class QuestionView extends Component {
     this.getQuestions();
   }
 
+  // This should consider also the search term so that when a search
+  // would return pageS of questions, changing a page should display
+  // the next page that matches also the search term
   getQuestions = () => {
     $.ajax({
       url: `${api}/questions?page=${this.state.page}`, //TODO: update request URL
@@ -80,13 +83,14 @@ class QuestionView extends Component {
   submitSearch = (searchTerm) => {
     $.ajax({
       url: `${api}/questions`, //TODO: update request URL
-      type: "POST",
+      type: "GET", // Changed the method from POST to GET since POST is to save
+      // a new resource and GET is to get a resource
       dataType: 'json',
       contentType: 'application/json',
-      data: JSON.stringify({searchTerm: searchTerm}),
-      xhrFields: {
-        withCredentials: true
-      },
+      data: {searchTerm: searchTerm},
+      // xhrFields: {
+      //   withCredentials: true
+      // },
       crossDomain: true,
       success: (result) => {
         this.setState({

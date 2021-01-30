@@ -83,7 +83,11 @@ def create_app(test_config=None):
     
     @app.route('/api/questions')
     def retrieve_questions():
-        selection = Question.query.order_by(Question.question)
+        selection = Question.query
+        search_term = request.args.get('searchTerm')
+        if search_term:
+            selection = selection.filter(Question.question.ilike('%{}%'.format(search_term)))
+        selection = selection.order_by(Question.question)
         paginated = paginate(request, selection)
         return jsonify({
                 'success': True,
@@ -154,6 +158,9 @@ def create_app(test_config=None):
     only question that include that string within their question.
     Try using the word "title" to start.
     '''
+    # Instead of a specific method to handle a POST, the method retrieve_questions for GET
+    # has been updated to take into account filtering
+    # A GET is more appropriate as it is about getting filtered questions
     
     '''
     @TODO:
