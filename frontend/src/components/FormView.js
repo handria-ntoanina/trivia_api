@@ -45,10 +45,9 @@ class FormView extends Component {
         difficulty: this.state.difficulty,
         category: this.state.category
       }),
-      // Credentials is not allowed to be part of header from the API side
-      // xhrFields: {
-      //   withCredentials: true
-      // },
+      xhrFields: {
+        withCredentials: true
+      },
       crossDomain: true,
       success: (result) => {
         document.getElementById("add-question-form").reset();
