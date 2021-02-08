@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import random
+from sqlalchemy.sql.expression import func
 
 from models import setup_db, Question, Category
 from config import Config
@@ -190,6 +190,39 @@ def create_app(test_config=None):
     one question at a time is displayed, the user is allowed to answer
     and shown whether they were correct or not.
     '''
+
+    @app.route('/api/quizzes', methods=['POST'])
+    def generate_quiz():
+        body = request.get_json()
+    
+        previous_questions = body.get('previous_questions', [])
+        quiz_category = body.get('quiz_category', None)
+ 
+        if not quiz_category:
+            # check https://stackoverflow.com/questions/7939137/right-http-status-code-to-wrong-input
+            abort(422)
+
+        try:
+            questions = Question.query.filter(Question.id.notin_(previous_questions))
+            # 0 is for all category
+            if quiz_category["id"] != 0:
+                questions = questions.filter(Question.category == quiz_category["id"])
+            
+            # check https://stackoverflow.com/questions/60805/getting-random-row-through-sqlalchemy
+            question = questions.order_by(func.random()).limit(1).one_or_none()
+            if not question:
+                return jsonify({
+                    'success': True,
+                    'question': None
+                }), 200
+            
+            return jsonify({
+                'success': True,
+                'question': question.format()
+            }), 200
+            
+        except:
+            abort(422)
     
     '''
     @TODO:

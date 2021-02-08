@@ -39,12 +39,12 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['message'], 'unprocessable')
         self.assertEqual(res.status_code, 422)
 
-    def generate_test_data(self, size):
+    def generate_test_data(self, size, category=None):
         # Empty the table question and add some rows
         Question.query.delete()
         for i in range(size):
             s = str(i) if i >= 10 else '0' + str(i)
-            question = Question('question' + s, 'answer' + s, i, i)
+            question = Question('question' + s, 'answer' + s, category if category else i, i)
             self.db.session.add(question)
         self.db.session.commit()
 
@@ -185,12 +185,61 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['questions'][0]['category'], 4)
 
     def test_retrieve_category_questions_error(self):
-        question = Question('q','ans', 10, 4)
+        question = Question('q', 'ans', 10, 4)
         self.db.session.add(question)
         self.db.session.commit()
         self.generate_test_data(5)
         res = self.client().get('/api/categories/12/questions')
         self.assert_404(res)
+        
+    def test_generate_quiz(self):
+        cat = Category(type='same category')
+        self.db.session.add(cat)
+        self.db.session.commit()
+        size = 10
+        self.generate_test_data(size, cat.id)
+
+        quiz_input = {"previous_questions": [], "quiz_category": {"type": cat.type, "id": cat.id}}
+        for i in range(size):
+            res = self.client().post('/api/quizzes', json=quiz_input)
+            res = json.loads(res.data)
+            self.assertIsNotNone(res["question"])
+            self.assertIsNotNone(res["question"]["id"])
+            # Check that the returned question was not yet returned
+            self.assertTrue(res["question"]["id"] not in quiz_input["previous_questions"])
+            self.assertIsNotNone(res["question"]["question"])
+            self.assertIsNotNone(res["question"]["answer"])
+            quiz_input["previous_questions"].append(res["question"]["id"])
+
+        # Check that there are no more available questions
+        res = self.client().post('/api/quizzes', json=quiz_input)
+        res = json.loads(res.data)
+        self.assertIsNone(res["question"])
+
+    def test_generate_quiz_all_category(self):
+        size = 10
+        # generate questions, each belonging to different category
+        self.generate_test_data(size)
+
+        quiz_input = {"previous_questions": [], "quiz_category": {"type": "click", "id": 0}}
+        for i in range(size):
+            res = self.client().post('/api/quizzes', json=quiz_input)
+            res = json.loads(res.data)
+            # Being able to retrieve another question means the quiz is returning one from another category
+            self.assertIsNotNone(res["question"])
+            self.assertIsNotNone(res["question"]["id"])
+            self.assertIsNotNone(res["question"]["question"])
+            self.assertIsNotNone(res["question"]["answer"])
+            quiz_input["previous_questions"].append(res["question"]["id"])
+
+    def test_generate_quiz_no_category(self):
+        self.db.session.commit()
+        self.generate_test_data(10)
+
+        quiz_input = {"previous_questions": [], "quiz_category": None}
+        res = self.client().post('/api/quizzes', json=quiz_input)
+        self.assert_422(res)
+
 
 # Make the tests conveniently executable
 if __name__ == "__main__":
