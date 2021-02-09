@@ -194,6 +194,7 @@ def create_app(test_config=None):
 
     @app.route('/api/quizzes', methods=['POST'])
     def generate_quiz():
+        print('Here')
         body = request.get_json()
     
         previous_questions = body.get('previous_questions', [])
